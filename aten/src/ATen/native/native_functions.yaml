@@ -159,10 +159,17 @@
 - func: argmin(Tensor self) -> Tensor
 - func: _argmin(Tensor self, int64_t dim, bool keepdim=false) -> Tensor
 
-# The actual implementations live in Declarations.cwrap. These are just to
-# provide default values for storage_offset=self.storage_offset()
 - func: as_strided(Tensor self, IntList size, IntList stride) -> Tensor
+
 - func: as_strided_(Tensor self, IntList size, IntList stride) -> Tensor
+
+- func: as_strided(Tensor self, IntList size, IntList stride, int64_t storage_offset) -> Tensor
+  python_default_init:
+    storage_offset: self.storage_offset()
+
+- func: as_strided_(Tensor self, IntList size, IntList stride, int64_t storage_offset) -> Tensor
+  python_default_init:
+    storage_offset: self.storage_offset()
 
 - func: asin(Tensor self) -> Tensor
 
@@ -983,6 +990,11 @@
 
 - func: mv_out(Tensor result, Tensor self, Tensor vec) -> Tensor
   variants: function
+
+- func: mvlgamma(Tensor self, int64_t p) -> Tensor
+
+- func: mvlgamma_(Tensor self, int64_t p) -> Tensor
+  variants: method
 
 - func: narrow(Tensor self, int64_t dim, int64_t start, int64_t length) -> Tensor
 
