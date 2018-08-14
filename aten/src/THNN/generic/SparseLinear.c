@@ -26,18 +26,18 @@ static bool THNN_(checkSize2D)(THTensor* t, int64_t size0, int64_t size1)
 
 static bool THNN_(checkSize1D)(THTensor* t, int64_t size0)
 {
-  return !t->is_empty() && t->dim() == 1 && t->size(0) == size0;
+  return !t->is_empty() && THTensor_nDimensionLegacyNoScalars(t) == 1 && THTensor_sizeLegacyNoScalars(t, 0) == size0;
 }
 
 static void THNN_(set1d)(THTensor *t, int64_t x0, real value) {
-  THStorage_(set)(t->storage, t->storageOffset + x0*t->stride(0), value);
+  THStorage_(set)(THTensor_getStoragePtr(t), t->storage_offset() + x0*t->stride(0), value);
 }
 static real THNN_(get3d)(const THTensor *t, int64_t x0, int64_t x1, int64_t x2) {
-  return THStorage_(get)(t->storage, t->storageOffset +
+  return THStorage_(get)(THTensor_getStoragePtr(t), t->storage_offset() +
                          x0*t->stride(0) + x1*t->stride(1) + x2*t->stride(2));
 }
 static real THNN_(get2d)(const THTensor *t, int64_t x0, int64_t x1) {
-  return THStorage_(get)(t->storage, t->storageOffset +
+  return THStorage_(get)(THTensor_getStoragePtr(t), t->storage_offset() +
                          x0*t->stride(0) + x1*t->stride(1));
 }
 

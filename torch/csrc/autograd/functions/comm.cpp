@@ -1,3 +1,5 @@
+#ifdef USE_CUDA
+
 #include <torch/csrc/autograd/functions/comm.h>
 
 #include <torch/csrc/autograd/function.h>
@@ -7,7 +9,8 @@
 #include <torch/csrc/utils/functional.h>
 
 #include <ATen/ATen.h>
-#include <ATen/optional.h>
+#include <ATen/core/optional.h>
+#include <ATen/cuda/CUDAContext.h>
 
 #include <cstddef>
 #include <memory>
@@ -19,7 +22,7 @@ Scatter::Scatter(
     std::vector<at::Device> devices,
     const at::optional<std::vector<int64_t>>& chunk_sizes,
     int64_t dim,
-    const at::optional<std::vector<at::CUDAStream>>& streams,
+    const at::optional<std::vector<at::cuda::CUDAStream>>& streams,
     bool unsqueeze_scalars)
     : devices_(std::move(devices)),
       chunk_sizes_(chunk_sizes),
@@ -129,3 +132,5 @@ variable_list Gather::apply(variable_list&& inputs) {
 
 } // namespace autograd
 } // namespace torch
+
+#endif

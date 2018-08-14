@@ -1,5 +1,7 @@
 #include <torch/csrc/cuda/comm.h>
 
+#ifdef USE_CUDA
+
 #include <torch/csrc/cuda/device_set.h>
 #include <torch/csrc/utils/tensor_flatten.h>
 
@@ -8,7 +10,9 @@
 #endif
 
 #include <ATen/ATen.h>
-#include <ATen/optional.h>
+#include <ATen/core/optional.h>
+#include <ATen/cuda/CUDAContext.h>
+#include <ATen/cuda/CUDAGuard.h>
 
 #include <cstddef>
 #include <vector>
@@ -70,7 +74,7 @@ tensor_list2d broadcast_coalesced(TensorList tensors, IntList devices, size_t bu
   }
 
   tensor_list2d outputs(devices.size());
-  outputs[0] = tensors;
+  outputs[0] = tensors.vec();
   for (auto & o : outputs)
     o.reserve(tensors.size());
 
@@ -118,7 +122,7 @@ std::vector<at::Tensor> scatter(
     at::IntList devices,
     const at::optional<std::vector<int64_t>>& chunk_sizes,
     int64_t dim,
-    const at::optional<std::vector<at::CUDAStream>>& streams) {
+    const at::optional<std::vector<at::cuda::CUDAStream>>& streams) {
   std::vector<at::Tensor> chunks;
   if (chunk_sizes) {
     const int64_t chunk_size_sum =
@@ -140,7 +144,7 @@ std::vector<at::Tensor> scatter(
   } else {
     chunks = tensor.chunk(/*chunks=*/devices.size(), /*dim=*/dim);
   }
-  at::CUDAGuard cuda_guard;
+  at::cuda::CUDAGuard cuda_guard;
   for (size_t chunk = 0; chunk < chunks.size(); ++chunk) {
     const auto device_index = static_cast<int32_t>(devices[chunk]);
     if (streams) {
@@ -150,7 +154,7 @@ std::vector<at::Tensor> scatter(
           chunk, " (was ", (*streams)[chunk].device(), ") ",
           "to match the device supplied at that index ",
           "(expected ", device_index, ")");
-      cuda_guard.set_stream((*streams)[chunk]);
+      cuda_guard.set_stream(at::cuda::CUDAStream((*streams)[chunk]));
     }
     chunks[chunk] = chunks[chunk].contiguous().to(
         {at::kCUDA, device_index}, /*non_blocking=*/true);
@@ -197,3 +201,5 @@ at::Tensor gather(
   return result;
 }
 }} // namespace torch::cuda
+
+#endif
