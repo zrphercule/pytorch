@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <stdexcept>
+#include <unordered_map>
 #include <vector>
 
 #include <ATen/ATen.h>
@@ -111,6 +112,22 @@ class ProcessGroup {
       std::vector<at::Tensor>& outputTensors,
       std::vector<std::vector<at::Tensor>>& inputTensors,
       const ScatterOptions& opts = ScatterOptions()) = 0;
+
+  virtual std::shared_ptr<ProcessGroup::Work> send(
+      std::vector<at::Tensor>& tensors,
+      int dstRank) = 0;
+
+  virtual std::shared_ptr<ProcessGroup::Work> recv(
+      std::vector<at::Tensor>& tensors,
+      int srcRank) = 0;
+
+  virtual std::shared_ptr<ProcessGroup::Work> recvAnysource(
+      std::vector<at::Tensor>& tensors,
+      int* srcRank) = 0;
+
+  virtual std::shared_ptr<ProcessGroup::Work> barrier() = 0;
+
+  virtual std::unordered_map<int, int> getGroupRank() = 0;
 
  protected:
   const int rank_;

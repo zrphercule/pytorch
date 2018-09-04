@@ -52,6 +52,9 @@ TEST_CASE("serialization") {
         // XXX can't serialize half tensors at the moment since contiguous() is
         // not implemented for this type;
         continue;
+      } else if (at::isComplexType(static_cast<torch::Dtype>(i))) {
+        // Not supported yet
+        continue;
       } else if (i == static_cast<int>(torch::Dtype::Undefined)) {
         // We can't construct a tensor for this type. This is tested in
         // serialization/undefined anyway.
@@ -59,7 +62,7 @@ TEST_CASE("serialization") {
       }
 
       auto x = torch::ones(
-          {5, 5}, torch::getType(torch::kCPU, static_cast<torch::Dtype>(i)));
+          {5, 5}, static_cast<torch::Dtype>(i));
       auto y = torch::empty({});
 
       std::stringstream ss;
@@ -203,7 +206,7 @@ TEST_CASE("serialization") {
       loss.backward();
       optimizer.step();
 
-      running_loss = running_loss * 0.99 + loss.data().sum().toCFloat() * 0.01;
+      running_loss = running_loss * 0.99 + loss.sum().toCFloat() * 0.01;
       REQUIRE(epoch < 3000);
       epoch++;
     }
@@ -314,7 +317,7 @@ TEST_CASE("serialization_cuda", "[cuda]") {
     loss.backward();
     optimizer.step();
 
-    running_loss = running_loss * 0.99 + loss.data().sum().toCFloat() * 0.01;
+    running_loss = running_loss * 0.99 + loss.sum().toCFloat() * 0.01;
     REQUIRE(epoch < 3000);
     epoch++;
   }
