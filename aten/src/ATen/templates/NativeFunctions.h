@@ -2,9 +2,10 @@
 
 // ${generated_comment}
 
+#include <ATen/Context.h>
 #include <ATen/ScalarType.h>
 #include <ATen/TensorOperators.h>
-#include <ATen/TensorMethods.h>
+#include <ATen/core/TensorMethods.h>
 #include <ATen/core/TensorOptions.h>
 
 #include <array>
@@ -28,7 +29,7 @@ inline Tensor from_blob(
     IntList sizes,
     const std::function<void(void*)>& deleter,
     const TensorOptions& options = {}) {
-  return at::getMaybeVariableType(options).tensorFromBlob(data, sizes, deleter);
+  return at::getType(options).tensorFromBlob(data, sizes, deleter);
 }
 
 inline Tensor from_blob(
@@ -37,7 +38,7 @@ inline Tensor from_blob(
     IntList strides,
     const std::function<void(void*)>& deleter,
     const TensorOptions& options = {}) {
-  return at::getMaybeVariableType(options).tensorFromBlob(data, sizes, strides, deleter);
+  return at::getType(options).tensorFromBlob(data, sizes, strides, deleter);
 }
 
 inline Tensor from_blob(
