@@ -1137,6 +1137,9 @@ class TestNN(NNTestCase):
         modules += [nn.Conv2d(3, 4, 3)]
         module_list += [modules[-1]]
         check()
+        modules.insert(1, nn.Linear(3, 2))
+        module_list.insert(1, modules[1])
+        check()
         modules.append(nn.Tanh())
         module_list.append(modules[-1])
         check()
@@ -4198,6 +4201,43 @@ class TestNN(NNTestCase):
             input_shape = correct_input_shape
             hidden_shape = update_shape(correct_hidden_shape, 0, bad_size)
             test(input_shape, hidden_shape, mode)
+
+    @unittest.skipIf(not TEST_MULTIGPU, "multi-GPU not supported")
+    def test_rnn_check_device(self):
+        input_size = 3
+        hidden_size = 5
+        num_layers = 2
+        batch_size = 4
+        seq_len = 6
+        num_directions = 1
+
+        correct_input_shape = (seq_len, batch_size, input_size)
+        correct_hidden_shape = (num_layers * num_directions, batch_size, hidden_size)
+        rnn_modes = ['RNN', 'GRU', 'LSTM']
+
+        for mode in rnn_modes:
+            model = getattr(nn, mode)(input_size, hidden_size, num_layers)
+            input = torch.randn(correct_input_shape)
+            hidden = torch.randn(correct_hidden_shape)
+
+            # input and weights are not at the same device
+            with self.assertRaisesRegex(RuntimeError,
+                                        "Input and parameter tensors are not at the same device"):
+                model(input.to('cuda:0'))
+
+            # input and hiddens are not at the same device
+            with self.assertRaisesRegex(RuntimeError,
+                                        r"Expected object of backend CPU but got backend CUDA for argument"):
+                if mode is 'LSTM':
+                    model(input, (hidden.to('cuda:0'), hidden.to('cuda:0')))
+                else:
+                    model(input, (hidden.to('cuda:0')))
+
+            # hidden tensors are not at the same CUDA device
+            if mode is 'LSTM':
+                with self.assertRaisesRegex(RuntimeError,
+                                            "Input and hidden tensors are not at the same device"):
+                    model(input.to('cuda:0'), (hidden.to('cuda:0'), hidden.to('cuda:1')))
 
     def test_rnn_initial_hidden_state(self):
         rnn_modes = ['RNN', 'GRU', 'LSTM']
