@@ -14,12 +14,12 @@ from torch._six import inf, nan
 from torch.autograd.gradcheck import gradgradcheck, gradcheck
 from torch.autograd.function import once_differentiable
 from torch.autograd.profiler import profile
-from common import (TEST_MKL, TestCase, run_tests, skipIfNoLapack,
-                    suppress_warnings, skipIfRocm,
-                    prod_single_zero, random_square_matrix_of_rank,
-                    random_symmetric_matrix, random_symmetric_psd_matrix,
-                    random_symmetric_pd_matrix, make_nonzero_det,
-                    random_fullrank_matrix_distinct_singular_value)
+from common_utils import (TEST_MKL, TestCase, run_tests, skipIfNoLapack,
+                          suppress_warnings, skipIfRocm,
+                          prod_single_zero, random_square_matrix_of_rank,
+                          random_symmetric_matrix, random_symmetric_psd_matrix,
+                          random_symmetric_pd_matrix, make_nonzero_det,
+                          random_fullrank_matrix_distinct_singular_value)
 from torch.autograd import Variable, Function, detect_anomaly
 from torch.autograd.function import InplaceFunction
 from torch.testing import make_non_contiguous, randn_like
@@ -1406,6 +1406,7 @@ class TestAutograd(TestCase):
         expected_grad[:2] = grad_output
         self.assertEqual(x.grad.data, expected_grad)
 
+    @skipIfRocm
     def test_ctc_loss(self):
         batch_size = 64
         num_labels = 101
@@ -1989,7 +1990,6 @@ class TestAutograd(TestCase):
                               lambda a, b: torch.cat((a, b)),
                               True, f_args_variable, f_args_tensor)
 
-    @skipIfRocm
     def test_potrf(self):
         root = Variable(torch.tril(torch.rand(S, S)), requires_grad=True)
 
@@ -2149,7 +2149,10 @@ class TestAutograd(TestCase):
         run_test((10, 10), torch.zeros(10, 10))
         run_test((10,), 0)
 
-    @skipIfRocm
+    def test_pow_scalar_base(self):
+        a = torch.arange(1, 13, dtype=torch.double).view(3, 4).requires_grad_()
+        gradcheck(lambda a: torch.pow(2, a), (a,))
+
     def test_pinverse(self):
         # Why is pinverse tested this way, and not ordinarily as other linear algebra methods?
         # 1. Pseudo-inverses are not generally continuous, which means that they are not differentiable
@@ -2172,6 +2175,21 @@ class TestAutograd(TestCase):
         gradcheck(func, [torch.rand(m).add_(10).requires_grad_()])
         gradgradcheck(func, [torch.rand(m).add_(1).requires_grad_()])
         gradgradcheck(func, [torch.rand(m).add_(10).requires_grad_()])
+
+    @skipIfRocm
+    def test_chain_matmul(self):
+        def gen_matrices(p):
+            matrices = []
+            for (pi, pi_1) in zip(p[:-1], p[1:]):
+                matrices.append(torch.randn(pi, pi_1).requires_grad_())
+            return matrices
+
+        gradcheck(torch.chain_matmul, gen_matrices([5, 10, 15, 5]))
+        gradcheck(torch.chain_matmul, gen_matrices([3, 5, 2, 6]))
+        gradcheck(torch.chain_matmul, gen_matrices([6, 2, 4, 8, 10]))
+        gradgradcheck(torch.chain_matmul, gen_matrices([5, 10, 15, 5]))
+        gradgradcheck(torch.chain_matmul, gen_matrices([3, 5, 2, 6]))
+        gradgradcheck(torch.chain_matmul, gen_matrices([6, 2, 4, 8, 10]))
 
     def test_profiler(self):
         x = torch.randn(10, 10)
@@ -2545,12 +2563,18 @@ class TestAutograd(TestCase):
                     out.backward()
             self.assertIn('MyFunc.apply', str(w[0].message))
 
-    @skipIfRocm
     def test_symeig_no_eigenvectors(self):
         A = torch.tensor([[1., 2.], [2., 4.]], dtype=torch.float32, requires_grad=True)
         w, v = torch.symeig(A, eigenvectors=False)
-        with self.assertRaisesRegex(RuntimeError, 'backward without computing eigenvectors'):
+        with self.assertRaisesRegex(RuntimeError, 'cannot compute backward'):
             torch.autograd.backward([w, v], [torch.ones_like(w), torch.ones_like(v)])
+
+    @skipIfRocm
+    def test_svd_no_singularvectors(self):
+        A = torch.randn(2, 2, dtype=torch.float32, requires_grad=True)
+        u, s, v = torch.svd(A, compute_uv=False)
+        with self.assertRaisesRegex(RuntimeError, 'cannot compute backward'):
+            torch.autograd.backward([u, s, v], [torch.ones_like(u), torch.ones_like(s), torch.ones_like(v)])
 
     def test_no_grad_copy(self):
         # create autograd function that saves grad pointer as class static
@@ -3044,6 +3068,7 @@ method_tests = [
     ('norm', (S, S), (1,), '1'),
     ('norm', (S, S), (3,), '3'),
     ('norm', (S, S), (inf,), 'inf'),
+    ('norm', (S, S), (-inf,), '-inf'),
     ('norm', (S, S), ('fro',), 'fro_default'),
     ('norm', (S, S), ('fro', [0, 1],), 'fro'),
     ('norm', (S, S), ('nuc',), 'nuc'),
@@ -3184,13 +3209,13 @@ method_tests = [
      'large', NO_ARGS, [skipIfNoLapack]),
     ('gesv', (S, S), (random_fullrank_matrix_distinct_singular_value(S),), '', NO_ARGS, [skipIfNoLapack]),
     ('gesv', (S, S, S), (random_fullrank_matrix_distinct_singular_value(S, S),),
-     'batched', NO_ARGS, [skipIfNoLapack, skipIfRocm]),
+     'batched', NO_ARGS, [skipIfNoLapack]),
     ('gesv', (2, 3, S, S), (random_fullrank_matrix_distinct_singular_value(S, 2, 3),),
-     'batched_dims', NO_ARGS, [skipIfNoLapack, skipIfRocm]),
+     'batched_dims', NO_ARGS, [skipIfNoLapack]),
     ('gesv', (2, 2, S, S), (random_fullrank_matrix_distinct_singular_value(S, 1),),
-     'batched_broadcast_A', NO_ARGS, [skipIfNoLapack, skipIfRocm]),
+     'batched_broadcast_A', NO_ARGS, [skipIfNoLapack]),
     ('gesv', (1, S, S), (random_fullrank_matrix_distinct_singular_value(S, 2, 2),),
-     'batched_broadcast_b', NO_ARGS, [skipIfNoLapack, skipIfRocm]),
+     'batched_broadcast_b', NO_ARGS, [skipIfNoLapack]),
     ('fill_', (S, S, S), (1,), 'number'),
     ('fill_', (), (1,), 'number_scalar'),
     # FIXME: we should compute the derivative w.r.t torch.tensor(1)

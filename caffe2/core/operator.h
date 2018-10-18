@@ -122,7 +122,18 @@ class CAFFE2_API OperatorBase : public Observable<OperatorBase> {
     static_assert(
         std::is_same<T, Tensor>::value,
         "Output(int, DeviceType) is only available for Tensor");
+    // When you get a Tensor here it is not fully initialized
     return BlobGetMutableTensor(outputs_.at(idx), type);
+  }
+
+  inline Tensor* OutputTensor(
+      int idx,
+      const vector<int64_t>& dims,
+      const at::TensorOptions& options) {
+    CAFFE_ENFORCE_WITH_CALLER(
+        options.device_opt() != c10::nullopt,
+        "device must be provided in option.");
+    return BlobGetMutableTensor(outputs_.at(idx), dims, options);
   }
 
   template <typename T>
@@ -453,6 +464,17 @@ class Operator : public OperatorBase {
     return OperatorBase::template Input<Tensor>(idx, type);
   }
 
+  inline Tensor* Output(
+      int idx,
+      const vector<int64_t>& dims,
+      const at::TensorOptions& options) {
+    if (options.device_opt() == c10::nullopt) {
+      return OperatorBase::OutputTensor(
+          idx, dims, at::TensorOptions(options).device(context_.device()));
+    }
+    return OperatorBase::OutputTensor(idx, dims, options);
+  }
+
   inline Tensor* Output(int idx, DeviceType type = Context::GetDeviceType()) {
     return OperatorBase::template Output<Tensor>(idx, type);
   }
@@ -705,7 +727,7 @@ struct DispatchHelper<FixedValues<>, ExtraArgs...> {
   }
 };
 
-#define CAFFE2_DEFINE_TENSOR_TYPES_DISPATCHER(                                 \
+#define C10_DEFINE_TENSOR_TYPES_DISPATCHER(                                    \
     TensorTypes, DoRunWithType, DoRunWithOtherType)                            \
   template <typename FirstType, typename... Types, typename... ExtraArgs>      \
   struct DispatchHelper<TensorTypes<FirstType, Types...>, ExtraArgs...> {      \
@@ -763,15 +785,15 @@ struct DispatchHelper<FixedValues<>, ExtraArgs...> {
       return call<Op>(op, blob.meta());                                        \
     }                                                                          \
   };
-CAFFE2_DEFINE_TENSOR_TYPES_DISPATCHER(
+C10_DEFINE_TENSOR_TYPES_DISPATCHER(
     TensorTypes,
     DoRunWithType,
     DoRunWithOtherType)
-CAFFE2_DEFINE_TENSOR_TYPES_DISPATCHER(
+C10_DEFINE_TENSOR_TYPES_DISPATCHER(
     TensorTypes2,
     DoRunWithType2,
     DoRunWithOtherType2)
-#undef CAFFE2_DEFINE_TENSOR_TYPES_DISPATCHER
+#undef C10_DEFINE_TENSOR_TYPES_DISPATCHER
 
 // The device type registry. This works in two phases:
 // (1) gDeviceTypeRegistry() maps the device types values to the actual operator
@@ -927,9 +949,9 @@ class CAFFE2_API UnsupportedOperatorFeature : public std::exception {
 // A helper macro that should ONLY be used in the operator constructor to check
 // if needed features are met. If not, throws the UnsupportedOperatorFeature
 // exception with the given message.
-#define OPERATOR_NEEDS_FEATURE(condition, ...)                           \
-  if (!(condition)) {                                                    \
-    throw UnsupportedOperatorFeature(::caffe2::MakeString(__VA_ARGS__)); \
+#define OPERATOR_NEEDS_FEATURE(condition, ...)                 \
+  if (!(condition)) {                                          \
+    throw UnsupportedOperatorFeature(::c10::str(__VA_ARGS__)); \
   }
 
 // Creates an operator with the given operator definition.

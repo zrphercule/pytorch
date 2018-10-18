@@ -4,6 +4,9 @@
 #include <ideep_pin_singletons.hpp>
 #include "ideep_context.h"
 
+namespace at {
+REGISTER_CONTEXT(DeviceType::IDEEP, caffe2::IDEEPContext);
+} // namespace at
 namespace caffe2 {
 
 CAFFE_KNOWN_TYPE(ideep::tensor);
@@ -26,12 +29,5 @@ REGISTER_EVENT_QUERY_FUNCTION(IDEEP, EventQueryCPU);
 REGISTER_EVENT_ERROR_MESSAGE_FUNCTION(IDEEP, EventErrorMessageCPU);
 REGISTER_EVENT_SET_FINISHED_FUNCTION(IDEEP, EventSetFinishedCPU);
 REGISTER_EVENT_RESET_FUNCTION(IDEEP, EventResetCPU);
-
-BaseStaticContext* GetIDEEPStaticContext() {
-  static IDEEPStaticContext context;
-  return &context;
-}
-
-REGISTER_STATIC_CONTEXT(IDEEP, GetIDEEPStaticContext());
 
 } // namespace caffe2

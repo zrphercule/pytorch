@@ -31,7 +31,7 @@ from random import shuffle
 
 import torch
 from torch._six import inf
-from common import TestCase, run_tests, set_rng_seed, TEST_WITH_UBSAN
+from common_utils import TestCase, run_tests, set_rng_seed, TEST_WITH_UBSAN
 from common_cuda import TEST_CUDA
 from torch.autograd import grad, gradcheck
 from torch.distributions import (Bernoulli, Beta, Binomial, Categorical,
@@ -540,6 +540,12 @@ BAD_EXAMPLES = [
         {
             'loc': torch.tensor([1., 1.], requires_grad=True),
             'scale': torch.tensor([1., -1.], requires_grad=True),
+        },
+    ]),
+    Example(MultivariateNormal, [
+        {
+            'loc': torch.tensor([1., 1.], requires_grad=True),
+            'covariance_matrix': torch.tensor([[1.0, 0.0], [0.0, -2.0]], requires_grad=True),
         },
     ]),
     Example(Normal, [
@@ -2372,12 +2378,20 @@ class TestDistributions(TestCase):
              (1, 2)),
             (StudentT(df=torch.tensor([1.]), scale=torch.tensor([[1.]])),
              (1, 1)),
+            (StudentT(df=1., loc=torch.zeros(5, 1), scale=torch.ones(3)),
+             (5, 3)),
         ]
 
         for dist, expected_size in valid_examples:
-            dist_sample_size = dist.sample().size()
-            self.assertEqual(dist_sample_size, expected_size,
-                             'actual size: {} != expected size: {}'.format(dist_sample_size, expected_size))
+            actual_size = dist.sample().size()
+            self.assertEqual(actual_size, expected_size,
+                             '{} actual size: {} != expected size: {}'.format(dist, actual_size, expected_size))
+
+            sample_shape = torch.Size((2,))
+            expected_size = sample_shape + expected_size
+            actual_size = dist.sample(sample_shape).size()
+            self.assertEqual(actual_size, expected_size,
+                             '{} actual size: {} != expected size: {}'.format(dist, actual_size, expected_size))
 
     def test_invalid_parameter_broadcasting(self):
         # invalid broadcasting cases; should throw error
