@@ -1343,6 +1343,13 @@ def _pad_packed_sequence(g, data, batch_sizes, batch_first, padding_value, total
         data = g.op('Transpose', data, perm_i=[1, 0, 2])
     return data, lengths
 
+@parse_args('v', 'i', 'i', 'i', 'i')
+def LPPool1d(g, input, norm_type, kernel_size, stride, ceil_mode):
+    return g.op('LpPool',
+                input,
+                kernel_shape = kernel_size,
+                p = norm_type,
+                strides = stride)
 
 def randn(g, *shapes):
     shapes_list = list(shapes)
